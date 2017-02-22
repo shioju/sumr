@@ -1,0 +1,13 @@
+[package]
+name = "sumr"
+version = "0.1.0"
+authors = ["Sheng Hau <shioju12@gmail.com>"]
+
+[dependencies]
+docopt = "0.7"
+rustc-serialize = "0.3"
+serde = "0.9.8"
+serde_derive = "0.9.8"
+serde_json = "0.9.8"
+reqwest = "0.4.0"
+mime = "0.2.2"
