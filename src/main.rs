@@ -5,17 +5,19 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate reqwest;
 extern crate mime;
+extern crate toml;
 
 use docopt::Docopt;
 use reqwest::Client;
 use reqwest::header::{Headers, Accept, qitem, Authorization, Basic};
 use mime::{Mime, Attr, SubLevel, TopLevel, Value};
 use std::io::Read;
+use std::fs::File;
 
 const USAGE: &'static str = "
 sumr
 Usage:
-  sumr [options] <base-url> <build-id> <username> <password>
+  sumr [options] <configuration-file>
   sumr -h | --help
 Options:
   -h --help                         Show this screen.
@@ -23,10 +25,15 @@ Options:
 
 #[derive(RustcDecodable, Debug)]
 struct Args {
-    arg_username: String,
-    arg_password: String,
-    arg_base_url: String,
-    arg_build_id: String,
+    arg_configuration_file: String,
+}
+
+#[derive(Deserialize, PartialEq, Debug)]
+struct Config {
+    username: String,
+    password: String,
+    base_url: String,
+    build_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,23 +64,31 @@ fn main() {
         .and_then(|d| d.decode())
         .unwrap_or_else(|e| e.exit());
 
+    let config = read_config(&args.arg_configuration_file)
+        .map_err(|err| {
+            panic!("failed to read configuration file {}: {}",
+                   &args.arg_configuration_file,
+                   err)
+        })
+        .unwrap();
+
     let client = Client::new().unwrap();
 
     let builds_ids = get_dependent_builds(&client,
-                                          &args.arg_base_url,
-                                          &args.arg_build_id,
-                                          &args.arg_username,
-                                          &args.arg_password)
+                                          &config.base_url,
+                                          &config.build_id,
+                                          &config.username,
+                                          &config.password)
         .unwrap();
 
     let mut total_build_time = 0;
 
     for id in builds_ids {
         total_build_time += get_build_time(&client,
-                                           &args.arg_base_url,
+                                           &config.base_url,
                                            &id.to_string(),
-                                           &args.arg_username,
-                                           &args.arg_password)
+                                           &config.username,
+                                           &config.password)
             .unwrap();
     }
 
@@ -141,4 +156,31 @@ fn get(client: &Client,
     let request_builder = request_builder.headers(headers);
 
     request_builder.send()
+}
+
+fn read_config(path: &str) -> Result<Config, String> {
+    let mut file = File::open(&path).map_err(|err| err.to_string())?;
+    let mut config_toml = String::new();
+    file.read_to_string(&mut config_toml).map_err(|err| err.to_string())?;
+
+    toml::from_str(&config_toml).map_err(|err| err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{Config, read_config};
+
+  #[test]
+  fn it_reads_and_parses_a_config_file() {
+    let expected = Config {
+        base_url: "https://teamcity.example.com".to_string(),
+        build_id: "123".to_string(),
+        username: "username".to_string(),
+        password: "password".to_string(),
+    };
+
+    let actual = read_config("tests/fixtures/config.toml").unwrap();
+
+    assert_eq!(expected, actual);
+  }
 }
