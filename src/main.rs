@@ -179,7 +179,7 @@ mod tests {
         password: "password".to_string(),
     };
 
-    let actual = read_config("tests/fixtures/config.toml").unwrap();
+    let actual = read_config("tests/fixtures/example.toml").unwrap();
 
     assert_eq!(expected, actual);
   }

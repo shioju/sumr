@@ -1,0 +1,4 @@
+base_url = "https://teamcity.example.com"
+build_id = "123"
+username = "username"
+password = "password"
